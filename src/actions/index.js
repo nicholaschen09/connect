@@ -9,6 +9,7 @@ import {hasRoutesData } from '../timeline/segments';
 import { getDeviceFromState, deviceVersionAtLeast, deviceIsOnline } from '../utils';
 import { webrtcConnectionManager } from '../utils/webrtc';
 import { hardNavigate } from '../utils/navigation';
+import { urlForDevice, urlForDrive, urlForPrime, urlForStream } from '../url';
 
 let routesRequest = null;
 let routesRequestPromise = null;
@@ -143,19 +144,8 @@ export function checkLastRoutesData() {
 }
 
 export function urlForState(dongleId, log_id, start, end, prime) {
-  const path = [dongleId];
-
-  if (log_id) {
-    path.push(log_id);
-    if (start && end) {
-      path.push(start);
-      path.push(end);
-    }
-  } else if (prime) {
-    path.push('prime');
-  }
-
-  return `/${path.join('/')}`;
+  if (log_id) return urlForDrive(dongleId, log_id, start, end);
+  return prime ? urlForPrime(dongleId) : urlForDevice(dongleId);
 }
 
 function updateTimeline(state, dispatch, log_id, start, end, allowPathChange) {
@@ -348,7 +338,7 @@ export function streamNav(nav, allowPathChange = true) {
 
     if (allowPathChange) {
       const curPath = currentPathname(state);
-      const desiredPath = nav ? `/${state.dongleId}/stream` : `/${state.dongleId}`;
+      const desiredPath = nav ? urlForStream(state.dongleId) : urlForDevice(state.dongleId);
       if (curPath !== desiredPath) {
         dispatch(push(desiredPath));
       }

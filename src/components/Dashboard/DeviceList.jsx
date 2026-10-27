@@ -1,16 +1,18 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import * as Sentry from '@sentry/react';
+import { push } from 'connected-react-router';
 
 import { withStyles, Typography, IconButton } from '@material-ui/core';
 
 import MyCommaAuth from '@commaai/my-comma-auth';
 import { api } from '../../api/backend';
 
-import { updateDevices } from '../../actions';
+import { pushTimelineRange, selectDevice, updateDevices } from '../../actions';
 import Colors from '../../colors';
 import { deviceNamePretty, deviceIsOnline, filterRegularClick, emptyDevice } from '../../utils';
 import { SettingsIcon } from '../../icons';
+import { parseUrl, urlForDevice, urlForSettings } from '../../url';
 import VisibilityHandler from '../VisibilityHandler';
 
 import AddDevice from './AddDevice';
@@ -88,10 +90,6 @@ class DeviceList extends Component {
   constructor(props) {
     super(props);
 
-    this.state = {
-      settingsModalDongleId: null,
-    };
-
     this.renderDevice = this.renderDevice.bind(this);
     this.handleOpenedSettingsModal = this.handleOpenedSettingsModal.bind(this);
     this.handleClosedSettingsModal = this.handleClosedSettingsModal.bind(this);
@@ -101,11 +99,16 @@ class DeviceList extends Component {
   handleOpenedSettingsModal(dongleId, ev) {
     ev.stopPropagation();
     ev.preventDefault();
-    this.setState({ settingsModalDongleId: dongleId });
+    if (this.props.selectedDevice !== dongleId) {
+      this.props.dispatch(selectDevice(dongleId, false));
+    } else {
+      this.props.dispatch(pushTimelineRange(null, null, null, false));
+    }
+    this.props.dispatch(push(urlForSettings(dongleId)));
   }
 
   handleClosedSettingsModal() {
-    this.setState({ settingsModalDongleId: null });
+    this.props.dispatch(push(urlForDevice(this.props.settingsDongleId)));
   }
 
   async onVisible() {
@@ -158,8 +161,9 @@ class DeviceList extends Component {
   }
 
   render() {
-    const { settingsModalDongleId } = this.state;
-    const { classes, device, selectedDevice: dongleId } = this.props;
+    const {
+      classes, device, selectedDevice: dongleId, settingsDongleId, profile,
+    } = this.props;
 
     let { devices } = this.props;
     if (devices === null) {
@@ -178,6 +182,9 @@ class DeviceList extends Component {
         dongle_id: dongleId,
       }].concat(devices);
     }
+
+    const settingsDevice = devices.find((item) => item.dongle_id === settingsDongleId);
+    const canManageSettings = settingsDevice?.is_owner || profile?.superuser;
 
     const addButtonStyle = {
       borderRadius: 'unset',
@@ -203,8 +210,8 @@ class DeviceList extends Component {
           )}
         </div>
         <DeviceSettingsModal
-          isOpen={Boolean(settingsModalDongleId)}
-          dongleId={settingsModalDongleId}
+          isOpen={Boolean(settingsDongleId && canManageSettings)}
+          dongleId={canManageSettings ? settingsDongleId : null}
           onClose={this.handleClosedSettingsModal}
         />
       </>
@@ -216,6 +223,7 @@ const stateToProps = (state) => ({
   devices: state.devices,
   device: state.device,
   profile: state.profile,
+  settingsDongleId: parseUrl(state.router.location).settingsDongleId,
 });
 
 export default connect(stateToProps)(withStyles(styles)(DeviceList));
